@@ -5,7 +5,7 @@ Instagram story highlights into a searchable guide, organized by company.
 
 ```
 Instagram highlights ──fetch──▶ data/raw/<highlight>/*.jpg
-                     ──extract (Claude vision)──▶ data/extracted/<highlight>/*.json
+                     ──extract (vision model via OpenRouter)──▶ data/extracted/<highlight>/*.json
                      ──build──▶ output/
                                   index.html           searchable page: full-text search, company TOC, level/outcome filters
                                   interview_guide.md   doc with a company table of contents (import into Google Docs)
@@ -13,7 +13,8 @@ Instagram highlights ──fetch──▶ data/raw/<highlight>/*.jpg
                                   interviews.json      merged records
 ```
 
-For each screenshot, Claude transcribes the text verbatim and pulls out the company, role, level
+For each screenshot, a vision model (Claude by default, called through
+[OpenRouter](https://openrouter.ai)) transcribes the text verbatim and pulls out the company, role, level
 (intern / new grad / experienced), timeframe, outcome, ordered interview stages, specific
 questions, tips and compensation. Write-ups that span several consecutive slides (where only the
 first one names the company) are stitched into one record. Company spellings are normalized, so
@@ -25,7 +26,7 @@ original screenshots.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...   # or `ant auth login`
+export OPENROUTER_API_KEY=sk-or-...   # from https://openrouter.ai/keys
 ```
 
 ## 1. Get the screenshots
@@ -44,7 +45,7 @@ throwaway or low-stakes account is safer than your main one.
 
 **No-scraping alternative:** screenshot or save the slides yourself and drop them in
 `data/raw/<any folder name>/`, one folder per highlight. Files are processed in filename order,
-and the folder name is passed to Claude as a hint (e.g. `data/raw/Google/`). JPG, PNG, WebP and
+and the folder name is passed to the model as a hint (e.g. `data/raw/Google/`). JPG, PNG, WebP and
 GIF are supported. Convert iPhone HEIC files first.
 
 ## 2. Extract
@@ -53,12 +54,17 @@ GIF are supported. Convert iPhone HEIC files first.
 python -m swedata extract
 ```
 
-This sends each image to Claude (`claude-opus-5-5` by default, see `--model` and `--effort`) and
-caches the result per image, so re-running only processes new screenshots (`--force` redoes
+This sends each image through OpenRouter to `anthropic/claude-opus-5.5` by default. You can pass
+any OpenRouter model that accepts images and structured (JSON-schema) output with `--model`, e.g.
+`--model google/gemini-2.5-flash` for a cheaper run. Check the exact model ID on
+[openrouter.ai/models](https://openrouter.ai/models). `--effort low|medium|high` sets the reasoning
+effort. Requests only go to providers that support structured output, so every reply matches the
+schema. The result is cached per image, so re-running only processes new screenshots (`--force` redoes
 everything). Highlights are processed in parallel (`--workers`); slides within a highlight go in
 order so each one can see the previous slide's context. `extract` also runs `build` when it's done.
 
-Rough cost estimate: a few cents per screenshot, so on the order of $10 for 300 slides.
+Rough cost estimate with the default model: a few cents per screenshot, so on the order of $10 for
+300 slides. Smaller vision models cost a fraction of that.
 
 ## 3. Build (and use) the outputs
 
@@ -93,5 +99,5 @@ open output/index.html
 pip install pytest && python -m pytest
 ```
 
-The tests run the whole extract → build pipeline against a stubbed Claude client, so they need
+The tests run the whole extract → build pipeline against a stubbed OpenRouter client, so they need
 no network access or API key.

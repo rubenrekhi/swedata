@@ -1,4 +1,4 @@
-"""OCR + structuring of highlight screenshots with Claude's vision.
+"""OCR + structuring of highlight screenshots with a vision model via OpenRouter.
 
 Every image becomes one JSON file in ``data/extracted/<highlight>/<image>.json``
 holding a verbatim transcription plus structured fields (company, stages,
@@ -13,13 +13,16 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import anthropic
+import openai
 
-DEFAULT_MODEL = "claude-opus-5-5"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+# Any OpenRouter model that accepts images and JSON-schema output works; see openrouter.ai/models.
+DEFAULT_MODEL = "anthropic/claude-opus-5.5"
 PROMPT_VERSION = 1
 IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
 
@@ -117,7 +120,7 @@ def previous_slide_context(prev: dict | None) -> str:
 
 
 class Extractor:
-    def __init__(self, client: anthropic.Anthropic, model: str = DEFAULT_MODEL, effort: str = "medium"):
+    def __init__(self, client: openai.OpenAI, model: str = DEFAULT_MODEL, effort: str = "medium"):
         self.client = client
         self.model = model
         self.effort = effort
@@ -128,35 +131,51 @@ class Extractor:
             f'Highlight title: "{title}". Slide {index} of {total}.\n'
             f"Previous slide: {previous_slide_context(prev)}"
         )
-        response = self.client.beta.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
             max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": IMAGE_TYPES[image.suffix.lower()], "data": data}},
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{IMAGE_TYPES[image.suffix.lower()]};base64,{data}"}},
                     {"type": "text", "text": prompt},
-                ],
-            }],
-            output_config={"effort": self.effort, "format": {"type": "json_schema", "schema": SLIDE_SCHEMA}},
-            # Re-run on Anthropic's recommended fallback model if a safety classifier declines.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
+                ]},
+            ],
+            response_format={"type": "json_schema", "json_schema": {"name": "slide", "strict": True, "schema": SLIDE_SCHEMA}},
+            extra_body={
+                "reasoning": {"effort": self.effort},
+                # Only route to providers that honor response_format, so the reply is schema-valid JSON.
+                "provider": {"require_parameters": True},
+            },
         )
-        if response.stop_reason == "refusal":
-            raise RuntimeError(f"model declined this image ({getattr(response, 'stop_details', None)})")
-        if response.stop_reason == "max_tokens":
+        if not response.choices:
+            raise RuntimeError(f"empty response from OpenRouter: {response}")
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
             raise RuntimeError("response hit max_tokens before the JSON was complete")
+        content = choice.message.content
+        if not content:
+            raise RuntimeError(f"model returned no content (finish_reason={choice.finish_reason})")
+        return parse_json(content)
 
-        # If a fallback model took over mid-answer, only the text after the switch counts.
-        text = ""
-        for block in response.content:
-            if block.type == "fallback":
-                text = ""
-            elif block.type == "text":
-                text += block.text
-        return json.loads(text)
+
+def parse_json(text: str) -> dict:
+    """Parse the model's JSON, tolerating a ```json fence some models add anyway."""
+    text = text.strip()
+    fenced = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.DOTALL)
+    return json.loads(fenced.group(1) if fenced else text)
+
+
+def make_client() -> openai.OpenAI:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        raise SystemExit("Set OPENROUTER_API_KEY (create one at https://openrouter.ai/keys).")
+    return openai.OpenAI(
+        api_key=key,
+        base_url=OPENROUTER_BASE_URL,
+        max_retries=5,
+        default_headers={"X-Title": "swedata"},
+    )
 
 
 def cache_path(extracted_dir: Path, image: Path) -> Path:
@@ -177,7 +196,7 @@ def process_highlight(extractor: Extractor, folder: Path, extracted_dir: Path, f
             continue
         try:
             result = extractor.extract_image(image, title, i, len(images), prev)
-        except (anthropic.APIError, RuntimeError, json.JSONDecodeError) as exc:
+        except (openai.APIError, RuntimeError, json.JSONDecodeError) as exc:
             errors.append(f"{image}: {exc}")
             prev = None
             continue
@@ -204,13 +223,13 @@ def extract_all(
     effort: str = "medium",
     workers: int = 4,
     force: bool = False,
-    client: anthropic.Anthropic | None = None,
+    client: openai.OpenAI | None = None,
 ) -> int:
     folders = sorted(p for p in raw_dir.glob("*") if p.is_dir() and list_images(p))
     if not folders:
         raise SystemExit(f"No images found under {raw_dir}/<highlight>/ - run `fetch` first or drop screenshots there.")
 
-    extractor = Extractor(client or anthropic.Anthropic(max_retries=5), model=model, effort=effort)
+    extractor = Extractor(client or make_client(), model=model, effort=effort)
     total_done = total_skipped = 0
     all_errors: list[str] = []
     # Highlights run in parallel; slides within one highlight stay sequential for context.

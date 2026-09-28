@@ -1,4 +1,4 @@
-"""End-to-end test of extract -> build with a stubbed Claude client (no network)."""
+"""End-to-end test of extract -> build with a stubbed OpenRouter client (no network)."""
 
 import csv
 import json
@@ -51,12 +51,18 @@ class FakeMessages:
         self.calls = []
 
     def create(self, **kwargs):
-        image_msg = kwargs["messages"][0]["content"]
-        prompt = image_msg[1]["text"]
+        user_content = kwargs["messages"][1]["content"]
+        assert user_content[0]["image_url"]["url"].startswith("data:image/png;base64,")
+        assert kwargs["response_format"]["json_schema"]["schema"] is SLIDE_SCHEMA
+        prompt = user_content[1]["text"]
         self.calls.append(prompt)
         name = FakeMessages.current_name(prompt)
-        block = SimpleNamespace(type="text", text=json.dumps(ANSWERS[name]))
-        return SimpleNamespace(stop_reason="end_turn", content=[block])
+        # Wrap one answer in a code fence, as some models do despite response_format.
+        text = json.dumps(ANSWERS[name])
+        if name == "11.png":
+            text = f"```json\n{text}\n```"
+        message = SimpleNamespace(content=text)
+        return SimpleNamespace(choices=[SimpleNamespace(finish_reason="stop", message=message)])
 
     @staticmethod
     def current_name(prompt):
@@ -77,7 +83,7 @@ def test_pipeline(tmp_path):
     raw, extracted, out = tmp_path / "raw", tmp_path / "extracted", tmp_path / "output"
     make_screens(raw)
     fake = FakeMessages()
-    client = SimpleNamespace(beta=SimpleNamespace(messages=fake))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
 
     assert extract_all(raw, extracted, client=client, workers=2) == 0
     assert len(fake.calls) == 5
