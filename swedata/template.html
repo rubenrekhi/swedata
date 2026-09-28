@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SWE Interview Guide</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --border: #e3e2dd;
+    --accent: #2f5bd3; --accent-soft: #e8eefc; --mark: #ffe58a;
+    --offer: #1f7a45; --offer-bg: #e3f4ea; --reject: #a4332b; --reject-bg: #fbe7e5; --neutral-bg: #efeeea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514; --panel: #1f1f1d; --text: #ecebe6; --muted: #9c9b94; --border: #33332f;
+      --accent: #8aa8ff; --accent-soft: #232c45; --mark: #6b5a12;
+      --offer: #7fd3a1; --offer-bg: #193325; --reject: #f2a39c; --reject-bg: #3a1f1c; --neutral-bg: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border);
+           padding: 14px 20px 12px; }
+  h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  input[type=search], select { font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
+  input[type=search] { flex: 1 1 280px; min-width: 0; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button { font: inherit; font-size: 13px; color: var(--accent); background: none; border: 0; cursor: pointer; padding: 6px 4px; }
+  .count { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto; padding: 20px; }
+  nav { position: sticky; top: 118px; align-self: start; max-height: calc(100vh - 140px); overflow-y: auto; font-size: 14px; }
+  nav a { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 6px;
+          color: var(--text); text-decoration: none; }
+  nav a:hover { background: var(--neutral-bg); }
+  nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav a.empty { color: var(--muted); opacity: .5; }
+  nav .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  #companySelect { display: none; }
+  section h2 { font-size: 20px; margin: 28px 0 10px; scroll-margin-top: 130px; }
+  section:first-child h2 { margin-top: 0; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; }
+  .card-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .role { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--neutral-bg); }
+  .badge.offer { color: var(--offer); background: var(--offer-bg); }
+  .badge.rejected { color: var(--reject); background: var(--reject-bg); }
+  .summary { margin: 6px 0 0; color: var(--muted); }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  ol.stages { margin: 0; padding-left: 22px; }
+  ol.stages li { margin-bottom: 4px; }
+  ul { margin: 0; padding-left: 20px; }
+  details { margin-top: 12px; font-size: 14px; }
+  summary { cursor: pointer; color: var(--accent); }
+  pre { white-space: pre-wrap; word-break: break-word; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: var(--bg); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .thumbs a { font-size: 12px; color: var(--muted); text-align: center; text-decoration: none; }
+  .thumbs img { display: block; width: 90px; height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; }
+  .empty-state { color: var(--muted); padding: 40px 0; text-align: center; }
+  @media (max-width: 800px) {
+    header { position: static; padding: 12px 16px; }
+    .layout { grid-template-columns: 1fr; padding: 16px; }
+    nav { display: none; }
+    #companySelect { display: block; flex: 1 1 100%; }
+    section h2 { scroll-margin-top: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>SWE Interview Guide</h1>
+  <div class="sub">From zero2sudo's story highlights · __SUBTITLE__</div>
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Search companies, questions, tips…" title="Press / to search" autocomplete="off">
+    <select id="companySelect" aria-label="Company"></select>
+    <select id="level" aria-label="Level">
+      <option value="">All levels</option><option value="internship">Internship</option>
+      <option value="new_grad">New grad</option><option value="experienced">Experienced</option>
+    </select>
+    <select id="outcome" aria-label="Outcome">
+      <option value="">Any outcome</option><option value="offer">Offer</option><option value="rejected">Rejected</option>
+      <option value="ghosted">Ghosted</option><option value="in_progress">In progress</option><option value="withdrew">Withdrew</option>
+    </select>
+    <button id="clear" type="button">Clear</button>
+    <span class="count" id="count"></span>
+  </div>
+</header>
+<div class="layout">
+  <nav id="toc" aria-label="Companies"></nav>
+  <main id="results"></main>
+</div>
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const LEVELS = {internship: 'Internship', new_grad: 'New grad', experienced: 'Experienced'};
+const OUTCOMES = {offer: 'Offer', rejected: 'Rejected', ghosted: 'Ghosted', in_progress: 'In progress', withdrew: 'Withdrew'};
+const $ = id => document.getElementById(id);
+const state = {q: '', company: '', level: '', outcome: ''};
+
+const records = DATA.records.map(r => ({...r, hay: [
+  r.company, r.role, r.location, r.timeframe, r.compensation, r.summary, r.text,
+  ...r.stages.flatMap(s => [s.name, s.details]), ...r.questions, ...r.tips,
+].join(' \n ').toLowerCase()}));
+const companies = [...new Set(records.map(r => r.company))];
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+let markRe = null;
+function hl(s) {
+  s = String(s ?? '');
+  if (!markRe) return esc(s);
+  return s.split(markRe).map((part, i) => i % 2 ? `<mark>${esc(part)}</mark>` : esc(part)).join('');
+}
+const slug = c => 'c-' + c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+function matches(r, terms, ignoreCompany) {
+  if (!ignoreCompany && state.company && r.company !== state.company) return false;
+  if (state.level && r.level !== state.level) return false;
+  if (state.outcome && r.outcome !== state.outcome) return false;
+  return terms.every(t => r.hay.includes(t));
+}
+
+function card(r) {
+  const meta = [LEVELS[r.level], r.timeframe, r.location].filter(Boolean).map(hl).join(' · ');
+  const outcome = OUTCOMES[r.outcome] ? `<span class="badge ${r.outcome}">${OUTCOMES[r.outcome]}</span>` : '';
+  const stages = r.stages.length ? `<h3>Process</h3><ol class="stages">${r.stages.map(s =>
+    `<li><strong>${hl(s.name)}</strong>${s.details ? ' — ' + hl(s.details) : ''}</li>`).join('')}</ol>` : '';
+  const list = (title, items) => items.length ? `<h3>${title}</h3><ul>${items.map(x => `<li>${hl(x)}</li>`).join('')}</ul>` : '';
+  const comp = r.compensation ? `<h3>Compensation</h3><div>${hl(r.compensation)}</div>` : '';
+  const sparse = !r.stages.length && !r.questions.length && !r.tips.length;
+  const thumbs = r.sources.map(s => `<a href="${esc(s.image)}" target="_blank" rel="noopener">
+      <img src="${esc(s.image)}" loading="lazy" alt="">${esc(s.highlight)} #${s.index}</a>`).join('');
+  return `<article class="card">
+    <div class="card-head"><span class="role">${hl(r.role || (r.company === 'General advice' ? 'Advice' : 'Interview write-up'))}</span>
+      <span class="meta">${meta}</span>${outcome}</div>
+    ${r.summary ? `<p class="summary">${hl(r.summary)}</p>` : ''}
+    ${stages}${list('Questions', r.questions)}${list('Tips', r.tips)}${comp}
+    ${sparse ? `<pre>${hl(r.text)}</pre>` : ''}
+    <details><summary>Original screenshot${r.sources.length > 1 ? 's' : ''}${sparse ? '' : ' & transcript'}</summary>
+      ${sparse ? '' : `<pre>${hl(r.text)}</pre>`}<div class="thumbs">${thumbs}</div></details>
+  </article>`;
+}
+
+function render() {
+  const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+  markRe = terms.length ? new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi') : null;
+
+  const hits = records.filter(r => matches(r, terms, false));
+  const byCompany = new Map();
+  for (const r of hits) (byCompany.get(r.company) || byCompany.set(r.company, []).get(r.company)).push(r);
+
+  // TOC counts ignore the company filter so you can hop between companies.
+  const tocCounts = new Map();
+  for (const r of records) if (matches(r, terms, true)) tocCounts.set(r.company, (tocCounts.get(r.company) || 0) + 1);
+  const total = [...tocCounts.values()].reduce((a, b) => a + b, 0);
+  $('toc').innerHTML = `<a href="#" data-company="" class="${state.company ? '' : 'active'}"><span>All companies</span><span class="n">${total}</span></a>` +
+    companies.map(c => `<a href="#" data-company="${esc(c)}" class="${c === state.company ? 'active' : ''} ${tocCounts.get(c) ? '' : 'empty'}">
+      <span>${esc(c)}</span><span class="n">${tocCounts.get(c) || 0}</span></a>`).join('');
+  $('companySelect').innerHTML = `<option value="">All companies (${total})</option>` +
+    companies.filter(c => tocCounts.get(c)).map(c => `<option value="${esc(c)}" ${c === state.company ? 'selected' : ''}>${esc(c)} (${tocCounts.get(c)})</option>`).join('');
+
+  $('results').innerHTML = hits.length ? [...byCompany].map(([c, rs]) =>
+    `<section><h2 id="${slug(c)}">${hl(c)} <span class="meta">${rs.length}</span></h2>${rs.map(card).join('')}</section>`).join('')
+    : '<div class="empty-state">No write-ups match. Try fewer words or clear the filters.</div>';
+  $('count').textContent = `${hits.length} of ${records.length} write-ups`;
+
+  const params = new URLSearchParams(Object.entries(state).filter(([, v]) => v));
+  history.replaceState(null, '', params.toString() ? '#' + params : location.pathname);
+}
+
+function setCompany(c) { state.company = c; render(); window.scrollTo({top: 0}); }
+
+for (const [k, v] of new URLSearchParams(location.hash.slice(1))) if (k in state) state[k] = v;
+$('q').value = state.q; $('level').value = state.level; $('outcome').value = state.outcome;
+
+let timer;
+$('q').addEventListener('input', e => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); render(); }, 120); });
+$('level').addEventListener('change', e => { state.level = e.target.value; render(); });
+$('outcome').addEventListener('change', e => { state.outcome = e.target.value; render(); });
+$('companySelect').addEventListener('change', e => setCompany(e.target.value));
+$('toc').addEventListener('click', e => {
+  const a = e.target.closest('a'); if (!a) return;
+  e.preventDefault(); setCompany(a.dataset.company === state.company ? '' : a.dataset.company);
+});
+$('clear').addEventListener('click', () => {
+  Object.keys(state).forEach(k => state[k] = ''); $('q').value = ''; $('level').value = ''; $('outcome').value = ''; render();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $('q')) { e.preventDefault(); $('q').focus(); }
+});
+render();
+</script>
+</body>
+</html>

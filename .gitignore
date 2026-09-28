@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# Downloaded screenshots, extraction cache and generated outputs stay local.
+data/
+output/
